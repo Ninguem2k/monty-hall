@@ -1,5 +1,7 @@
 # 🚪 Problema de Monty Hall – Simulação Interativa
 
+Acesse a demonstração online: [Monty Hall – Simulação Interativa](https://ninguem2k.github.io/monty-hall/)
+
 [![Licença: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 Simulação interativa do clássico **Problema de Monty Hall**, inspirada na cena do filme *Quebrando a Banca* (21).  
