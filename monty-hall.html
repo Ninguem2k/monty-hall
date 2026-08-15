@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monty Hall – Hover com controle</title>
+    <style>
+        /* ===== ESTILOS GERAIS ===== */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 5px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        /* ===== VÍDEO ===== */
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            margin-bottom: 25px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            background: #000;
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        .video-fallback {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #222;
+            color: #fff;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+        }
+        .video-wrapper.error .video-fallback {
+            display: flex;
+        }
+        .video-wrapper.error iframe {
+            display: none;
+        }
+
+        /* ===== SEÇÃO INTERATIVA ===== */
+        .interactive-section {
+            background: #fafafa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+        }
+        .interactive-section h2 {
+            text-align: center;
+            color: #444;
+            font-size: 20px;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+        .doors-container {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        .door {
+            width: 130px;
+            height: 200px;
+            perspective: 600px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        .door:hover:not(.disabled) {
+            transform: translateY(-5px);
+        }
+        .door-inner {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        /* Flip permanente (aberta pelo apresentador ou final) */
+        .door.flipped .door-inner {
+            transform: rotateY(180deg);
+        }
+        /* Hover condicional – só funciona se a classe .reveal-enabled estiver presente */
+        .reveal-enabled .door:not(.flipped):hover .door-inner {
+            transform: rotateY(180deg);
+        }
+        .door-front, .door-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .door-front {
+            background: linear-gradient(145deg, #c0392b, #a93226);
+            border: 4px solid #7b2d26;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            color: #f1c40f;
+            cursor: pointer;
+        }
+        .door-front .door-number {
+            font-size: 48px;
+            color: #f1c40f;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .door-front .door-handle {
+            width: 18px;
+            height: 18px;
+            background: #f1c40f;
+            border-radius: 50%;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .door-back {
+            transform: rotateY(180deg);
+            background: #ecf0f1;
+            border: 4px solid #bdc3c7;
+            font-size: 50px;
+        }
+        .door-back .prize {
+            font-size: 70px;
+            line-height: 1.2;
+        }
+        .door-back .label {
+            font-size: 14px;
+            color: #2c3e50;
+            margin-top: 5px;
+        }
+        .door.selected .door-front {
+            border-color: #3498db;
+            box-shadow: 0 0 25px rgba(52,152,219,0.6);
+        }
+        .door.opened .door-front {
+            opacity: 0.4;
+            cursor: default;
+        }
+        .door.disabled {
+            cursor: default;
+        }
+        .door .door-status {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            background: #e74c3c;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        .door .door-status.win {
+            background: #27ae60;
+        }
+
+        /* Botão de revelação */
+        .reveal-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin: 10px 0 5px;
+        }
+        .reveal-toggle button {
+            background: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            border-radius: 30px;
+            padding: 8px 20px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .reveal-toggle button:hover {
+            background: #d5dbdb;
+            transform: scale(1.02);
+        }
+        .reveal-toggle button.active {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        .reveal-toggle .status-text {
+            font-size: 14px;
+            color: #555;
+        }
+
+        /* Controles interativos */
+        .interactive-controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 15px 0 5px;
+        }
+        .interactive-controls button {
+            padding: 10px 22px;
+            font-size: 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            color: white;
+            flex: 0 1 auto;
+        }
+        .interactive-controls button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .interactive-controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        .btn-choose   { background: #27ae60; }
+        .btn-switch   { background: #e74c3c; }
+        .btn-reset    { background: #95a5a6; }
+
+        /* Mensagem de status interativo */
+        .interactive-message {
+            text-align: center;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0 0;
+            font-weight: bold;
+            font-size: 15px;
+            min-height: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e8f4f8;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+        .interactive-message.success { background: #d4edda; color: #155724; border-left-color: #28a745; }
+        .interactive-message.danger  { background: #f8d7da; color: #721c24; border-left-color: #dc3545; }
+        .interactive-message.warning { background: #fff3cd; color: #856404; border-left-color: #ffc107; }
+
+        /* ===== ESTATÍSTICAS E BARRA ===== */
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0 20px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .stat-box {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            min-width: 150px;
+            flex: 1;
+        }
+        .stat-box h3 {
+            margin: 0 0 10px 0;
+            color: #555;
+            font-size: 16px;
+        }
+        .stat-box .number {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-box .percent {
+            font-size: 20px;
+            color: #7f8c8d;
+        }
+        .stat-box.win {
+            background: #d4edda;
+            border: 2px solid #28a745;
+        }
+        .stat-box.loss {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+        }
+
+        .progress-bar {
+            margin: 20px 0;
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 30px;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #2ecc71);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 25px 0;
+        }
+        .controls button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        .controls button:hover {
+            background: #2980b9;
+        }
+        .controls button.reset {
+            background: #95a5a6;
+        }
+        .controls button.reset:hover {
+            background: #7f8c8d;
+        }
+
+        .details {
+            margin-top: 30px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .details .log-entry {
+            padding: 3px 0;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+        }
+        .details .win-entry { color: #28a745; }
+        .details .loss-entry { color: #dc3545; }
+
+        @media (max-width: 600px) {
+            .door { width: 90px; height: 150px; }
+            .door-front .door-number { font-size: 32px; }
+            .door-back .prize { font-size: 45px; }
+            .door .door-status { font-size: 10px; padding: 2px 8px; }
+            .interactive-controls button { font-size: 13px; padding: 8px 14px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- ===== VÍDEO ===== -->
+    <div class="video-wrapper" id="videoWrapper">
+        <iframe 
+            src="https://www.youtube.com/embed/fwoq2ZzLuQo" 
+            title="Explicação do Problema de Monty Hall"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+        </iframe>
+        <div class="video-fallback">
+            <div>
+                <p>🎬 O vídeo não pôde ser carregado.</p>
+                <p>Você pode assistir diretamente no YouTube:</p>
+                <a href="https://www.youtube.com/watch?v=fwoq2ZzLuQo" target="_blank" style="color: #4fc3f7;">Clique aqui</a>
+            </div>
+        </div>
+    </div>
+
+    <h1>🎯 Simulação Monty Hall</h1>
+    <div class="subtitle">Controle a revelação por hover com o botão ao lado</div>
+
+    <!-- ===== SEÇÃO INTERATIVA ===== -->
+    <div class="interactive-section" id="interactiveSection">
+        <h2>🚪 Modo Interativo – Escolha e Decida</h2>
+
+        <div class="doors-container" id="doorsContainer">
+            <!-- gerado por JS -->
+        </div>
+
+        <!-- Botão de alternância da revelação -->
+        <div class="reveal-toggle">
+            <button id="btnToggleReveal">
+                <span id="revealIcon">🔒</span>
+                <span id="revealLabel">Revelação desativada</span>
+            </button>
+            <span class="status-text" id="revealStatus">(passe o mouse para espiar)</span>
+        </div>
+
+        <div class="interactive-message" id="interactiveMsg">
+            👆 Clique em uma porta para escolher
+        </div>
+
+        <div class="interactive-controls">
+            <button class="btn-choose"  id="btnKeep"   disabled>✅ Manter</button>
+            <button class="btn-switch"  id="btnSwitch" disabled>🔄 Trocar</button>
+            <button class="btn-reset"   id="btnNewRound">🔄 Nova rodada</button>
+        </div>
+    </div>
+
+    <!-- ===== ESTATÍSTICAS ===== -->
+    <div class="stats">
+        <div class="stat-box win">
+            <h3>✅ Vitórias</h3>
+            <div class="number" id="wins">0</div>
+            <div class="percent" id="winPercent">0%</div>
+        </div>
+        <div class="stat-box loss">
+            <h3>❌ Derrotas</h3>
+            <div class="number" id="losses">0</div>
+            <div class="percent" id="lossPercent">0%</div>
+        </div>
+        <div class="stat-box">
+            <h3>📊 Total de Rodadas</h3>
+            <div class="number" id="total">0</div>
+        </div>
+    </div>
+
+    <div class="progress-bar">
+        <div class="progress-fill" id="progressBar" style="width: 0%">0%</div>
+    </div>
+
+    <!-- ===== CONTROLES DE SIMULAÇÃO ===== -->
+    <div class="controls">
+        <button onclick="runAutoSimulation(1)">▶ Simular 1 vez</button>
+        <button onclick="runAutoSimulation(10)">▶ Simular 10 vezes</button>
+        <button onclick="runAutoSimulation(100)">▶ Simular 100 vezes</button>
+        <button onclick="runAutoSimulation(1000)">▶ Simular 1000 vezes</button>
+        <button class="reset" onclick="resetAll()">🔄 Resetar tudo</button>
+    </div>
+
+    <!-- ===== LOG ===== -->
+    <div class="details" id="log">
+        <div style="color: #666; text-align: center;">Clique em "Simular" ou jogue manualmente</div>
+    </div>
+</div>
+
+<script>
+    // ============================================================
+    //  ESTADO GLOBAL
+    // ============================================================
+    const state = {
+        carPosition: -1,
+        playerChoice: -1,
+        hostOpened: -1,
+        phase: 'initial',       // 'initial' | 'chosen' | 'revealed' | 'finished'
+        switched: false,
+        won: false,
+        total: 0,
+        wins: 0,
+        losses: 0,
+        revealEnabled: false,   // controle do hover
+    };
+
+    const logEntries = [];
+
+    // ============================================================
+    //  FUNÇÕES DO JOGO MANUAL
+    // ============================================================
+
+    function newManualRound() {
+        state.carPosition = Math.floor(Math.random() * 3);
+        state.playerChoice = -1;
+        state.hostOpened = -1;
+        state.phase = 'initial';
+        state.switched = false;
+        state.won = false;
+
+        document.querySelectorAll('.door').forEach(d => {
+            d.classList.remove('flipped', 'selected', 'opened', 'disabled');
+            d.style.pointerEvents = 'auto';
+        });
+
+        document.getElementById('btnKeep').disabled = true;
+        document.getElementById('btnSwitch').disabled = true;
+
+        setInteractiveMessage('👆 Clique em uma porta para escolher', '');
+        renderDoors();
+        updateRevealUI(); // atualiza o texto do status
+    }
+
+    function chooseDoor(index) {
+        if (state.phase !== 'initial') return;
+
+        state.playerChoice = index;
+        state.phase = 'chosen';
+
+        const doors = document.querySelectorAll('.door');
+        doors.forEach((d, i) => {
+            if (i === index) d.classList.add('selected');
+            d.style.pointerEvents = 'none';
+        });
+
+        // Apresentador abre uma porta com bode
+        let available = [];
+        for (let i = 0; i < 3; i++) {
+            if (i !== state.carPosition && i !== state.playerChoice) available.push(i);
+        }
+        const hostOpens = available.length === 1 ? available[0] : available[Math.floor(Math.random() * available.length)];
+        state.hostOpened = hostOpens;
+
+        setTimeout(() => {
+            doors[hostOpens].classList.add('flipped', 'opened');
+            doors[hostOpens].style.pointerEvents = 'none';
+            state.phase = 'revealed';
+
+            document.getElementById('btnKeep').disabled = false;
+            document.getElementById('btnSwitch').disabled = false;
+
+            setInteractiveMessage(
+                `🤔 O apresentador abriu a porta ${hostOpens+1} com um bode! O que você faz?`,
+                'warning'
+            );
+        }, 700);
+    }
+
+    function keepChoice() {
+        if (state.phase !== 'revealed') return;
+        finishManualGame(false);
+    }
+
+    function switchChoice() {
+        if (state.phase !== 'revealed') return;
+        finishManualGame(true);
+    }
+
+    function finishManualGame(switched) {
+        state.switched = switched;
+        const finalChoice = switched ? getOtherDoor() : state.playerChoice;
+        state.won = (finalChoice === state.carPosition);
+
+        const doors = document.querySelectorAll('.door');
+        doors.forEach((d, i) => {
+            d.classList.add('flipped');
+            d.style.pointerEvents = 'none';
+            d.classList.add('disabled');
+            if (i === state.carPosition) {
+                const status = d.querySelector('.door-status');
+                if (status) {
+                    status.textContent = '🚗 CARRO';
+                    status.classList.add('win');
+                }
+            }
+        });
+
+        state.total++;
+        if (state.won) state.wins++;
+        else state.losses++;
+
+        if (state.won) {
+            setInteractiveMessage(
+                `🎉 Você GANHOU! ${switched ? '(Trocar foi a melhor escolha)' : '(Manteve e deu certo)'}`,
+                'success'
+            );
+        } else {
+            setInteractiveMessage(
+                `😢 Perdeu! O carro estava na porta ${state.carPosition+1}. ${switched ? 'Trocar não ajudou' : 'Deveria ter trocado'}`,
+                'danger'
+            );
+        }
+
+        logEntries.push({
+            type: 'manual',
+            won: state.won,
+            switched: switched,
+            car: state.carPosition + 1,
+            choice: state.playerChoice + 1,
+            host: state.hostOpened + 1,
+            final: finalChoice + 1,
+        });
+
+        state.phase = 'finished';
+        document.getElementById('btnKeep').disabled = true;
+        document.getElementById('btnSwitch').disabled = true;
+
+        updateUI();
+        updateLog();
+    }
+
+    function getOtherDoor() {
+        for (let i = 0; i < 3; i++) {
+            if (i !== state.playerChoice && i !== state.hostOpened) return i;
+        }
+        return -1;
+    }
+
+    // ============================================================
+    //  RENDERIZAÇÃO DAS PORTAS
+    // ============================================================
+
+    function renderDoors() {
+        const container = document.getElementById('doorsContainer');
+        container.innerHTML = '';
+
+        for (let i = 0; i < 3; i++) {
+            const door = document.createElement('div');
+            door.className = 'door';
+            if (state.phase === 'finished') {
+                door.classList.add('flipped', 'disabled');
+            }
+            if (state.phase === 'revealed' && i === state.hostOpened) {
+                door.classList.add('opened');
+            }
+
+            const carRevealed = (state.phase === 'finished' && i === state.carPosition);
+            const goatRevealed = (state.phase === 'finished' && i !== state.carPosition);
+            const hostRevealed = (state.phase === 'revealed' && i === state.hostOpened);
+
+            door.innerHTML = `
+                <div class="door-inner">
+                    <div class="door-front">
+                        <div class="door-number">${i+1}</div>
+                        <div class="door-handle"></div>
+                        ${hostRevealed ? '<div class="door-status">🐐 BODE</div>' : ''}
+                        ${carRevealed ? '<div class="door-status win">🚗 CARRO</div>' : ''}
+                        ${goatRevealed && !hostRevealed ? '<div class="door-status">🐐 BODE</div>' : ''}
+                    </div>
+                    <div class="door-back">
+                        ${i === state.carPosition ?
+                            '<div><div class="prize">🚗</div><div class="label">CARRO!</div></div>' :
+                            '<div><div class="prize">🐐</div><div class="label">BODE</div></div>'
+                        }
+                    </div>
+                </div>
+            `;
+
+            if ((state.phase === 'initial' || state.phase === 'chosen') && state.playerChoice === -1) {
+                door.addEventListener('click', () => chooseDoor(i));
+            }
+
+            container.appendChild(door);
+        }
+        // Aplica o estado atual da revelação (classe no container)
+        updateRevealClass();
+    }
+
+    function setInteractiveMessage(text, type = '') {
+        const el = document.getElementById('interactiveMsg');
+        el.textContent = text;
+        el.className = 'interactive-message ' + type;
+    }
+
+    // ============================================================
+    //  CONTROLE DA REVELAÇÃO POR HOVER
+    // ============================================================
+
+    function toggleReveal() {
+        state.revealEnabled = !state.revealEnabled;
+        updateRevealUI();
+        updateRevealClass();
+    }
+
+    function updateRevealUI() {
+        const btn = document.getElementById('btnToggleReveal');
+        const icon = document.getElementById('revealIcon');
+        const label = document.getElementById('revealLabel');
+        const status = document.getElementById('revealStatus');
+
+        if (state.revealEnabled) {
+            icon.textContent = '👁️';
+            label.textContent = 'Revelação ativada';
+            btn.classList.add('active');
+            status.textContent = '(passe o mouse para espiar)';
+        } else {
+            icon.textContent = '🔒';
+            label.textContent = 'Revelação desativada';
+            btn.classList.remove('active');
+            status.textContent = '(hover bloqueado)';
+        }
+    }
+
+    function updateRevealClass() {
+        const section = document.getElementById('interactiveSection');
+        if (state.revealEnabled) {
+            section.classList.add('reveal-enabled');
+        } else {
+            section.classList.remove('reveal-enabled');
+        }
+    }
+
+    // ============================================================
+    //  SIMULAÇÃO AUTOMÁTICA
+    // ============================================================
+
+    function runAutoSimulation(count) {
+        let tempWins = 0;
+        for (let i = 0; i < count; i++) {
+            const car = Math.floor(Math.random() * 3);
+            const choice = Math.floor(Math.random() * 3);
+            let available = [];
+            for (let j = 0; j < 3; j++) {
+                if (j !== car && j !== choice) available.push(j);
+            }
+            const hostOpens = available.length === 1 ? available[0] : available[Math.floor(Math.random() * available.length)];
+            let switchedChoice;
+            for (let j = 0; j < 3; j++) {
+                if (j !== choice && j !== hostOpens) { switchedChoice = j; break; }
+            }
+            const won = (switchedChoice === car);
+            if (won) tempWins++;
+
+            if (i < 5 || i >= count - 5) {
+                logEntries.push({
+                    type: 'auto',
+                    won: won,
+                    switched: true,
+                    car: car + 1,
+                    choice: choice + 1,
+                    host: hostOpens + 1,
+                    final: switchedChoice + 1,
+                });
+            }
+        }
+
+        state.total += count;
+        state.wins += tempWins;
+        state.losses += (count - tempWins);
+
+        const rate = (tempWins / count * 100);
+        setInteractiveMessage(
+            `🤖 Simulação: ${count} rodadas, ${tempWins} vitórias (${rate.toFixed(1)}%) – Teoria ~66.7%`,
+            'info'
+        );
+
+        if (logEntries.length > 500) logEntries.splice(0, logEntries.length - 500);
+        updateUI();
+        updateLog();
+    }
+
+    // ============================================================
+    //  ATUALIZAÇÃO DA INTERFACE
+    // ============================================================
+
+    function updateUI() {
+        document.getElementById('wins').textContent = state.wins;
+        document.getElementById('losses').textContent = state.losses;
+        document.getElementById('total').textContent = state.total;
+
+        const winPct = state.total > 0 ? (state.wins / state.total * 100) : 0;
+        document.getElementById('winPercent').textContent = winPct.toFixed(1) + '%';
+        document.getElementById('lossPercent').textContent = (100 - winPct).toFixed(1) + '%';
+
+        document.getElementById('progressBar').style.width = winPct + '%';
+        document.getElementById('progressBar').textContent = winPct.toFixed(1) + '%';
+    }
+
+    function updateLog() {
+        const logDiv = document.getElementById('log');
+        if (logEntries.length === 0) {
+            logDiv.innerHTML = '<div style="color: #666; text-align: center;">Nenhuma rodada ainda.</div>';
+            return;
+        }
+
+        let html = '<div style="margin-bottom:8px; font-weight:bold;">Últimas jogadas:</div>';
+        const start = Math.max(0, logEntries.length - 30);
+        for (let i = logEntries.length - 1; i >= start; i--) {
+            const e = logEntries[i];
+            const cls = e.won ? 'win-entry' : 'loss-entry';
+            const icon = e.won ? '✅' : '❌';
+            const label = e.type === 'manual' ? '🧑‍💻' : '🤖';
+            html += `<div class="log-entry ${cls}">
+                <span>${label} ${icon} ${e.type==='manual'?'Manual':'Auto'} ${e.switched?'🔄 Trocou':'✅ Manteve'}</span>
+                <span>🚗${e.car} → 🎯${e.final}</span>
+            </div>`;
+        }
+        logDiv.innerHTML = html;
+    }
+
+    // ============================================================
+    //  RESET TOTAL
+    // ============================================================
+
+    function resetAll() {
+        state.total = 0;
+        state.wins = 0;
+        state.losses = 0;
+        logEntries.length = 0;
+        updateUI();
+        updateLog();
+        newManualRound();
+        setInteractiveMessage('🔄 Tudo resetado! Clique em uma porta para começar.', '');
+    }
+
+    // ============================================================
+    //  EVENT LISTENERS
+    // ============================================================
+
+    document.getElementById('btnKeep').addEventListener('click', keepChoice);
+    document.getElementById('btnSwitch').addEventListener('click', switchChoice);
+    document.getElementById('btnNewRound').addEventListener('click', newManualRound);
+    document.getElementById('btnToggleReveal').addEventListener('click', toggleReveal);
+
+    // Fallback do vídeo – se o iframe falhar, mostra a mensagem
+    document.getElementById('videoWrapper').addEventListener('error', function() {
+        this.classList.add('error');
+    });
+    // Também detecta se o iframe não carregou após um tempo
+    setTimeout(() => {
+        const wrapper = document.getElementById('videoWrapper');
+        const iframe = wrapper.querySelector('iframe');
+        if (iframe && !iframe.contentWindow) {
+            wrapper.classList.add('error');
+        }
+    }, 5000);
+
+    // ============================================================
+    //  INICIALIZAÇÃO
+    // ============================================================
+
+    window.onload = function() {
+        // 100 simulações iniciais
+        for (let i = 0; i < 100; i++) {
+            const car = Math.floor(Math.random() * 3);
+            const choice = Math.floor(Math.random() * 3);
+            let available = [];
+            for (let j = 0; j < 3; j++) {
+                if (j !== car && j !== choice) available.push(j);
+            }
+            const hostOpens = available.length === 1 ? available[0] : available[Math.floor(Math.random() * available.length)];
+            let switchedChoice;
+            for (let j = 0; j < 3; j++) {
+                if (j !== choice && j !== hostOpens) { switchedChoice = j; break; }
+            }
+            const won = (switchedChoice === car);
+            state.total++;
+            if (won) state.wins++;
+            else state.losses++;
+            if (i < 20) {
+                logEntries.push({ type: 'auto', won, switched: true, car: car+1, choice: choice+1, host: hostOpens+1, final: switchedChoice+1 });
+            }
+        }
+        updateUI();
+        updateLog();
+        newManualRound();
+
+        // Mensagem de resultado esperado no log
+        const logDiv = document.getElementById('log');
+        logDiv.innerHTML = `
+            <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 4px solid #ffc107;">
+                <strong>📌 Resultado esperado:</strong> 
+                Trocar dá vitória em ~66.7% das vezes (2/3)
+            </div>
+            ` + logDiv.innerHTML;
+    };
+</script>
+
+</body>
+</html>
